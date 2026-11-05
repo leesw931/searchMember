@@ -1,0 +1,529 @@
+
+
+<!DOCTYPE html>
+
+<html lang="ko">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>회원 검색 시스템</title>
+
+<style>
+
+* {
+
+    box-sizing: border-box;
+
+}
+
+body {
+
+    font-family: Arial, sans-serif;
+
+    background: #f4f6f9;
+
+    margin: 0;
+
+    padding: 25px 15px;
+
+    color: #333;
+
+}
+
+.container {
+
+    max-width: 650px;
+
+    margin: 30px auto;
+
+    background: white;
+
+    padding: 25px;
+
+    border-radius: 12px;
+
+    box-shadow: 0 3px 15px rgba(0,0,0,0.08);
+
+}
+
+h2 {
+
+    text-align: center;
+
+    margin-bottom: 25px;
+
+}
+
+.status {
+
+    font-size: 13px;
+
+    color: #666;
+
+    margin-bottom: 15px;
+
+}
+
+.search-area {
+
+    display: flex;
+
+    gap: 8px;
+
+    margin-bottom: 12px;
+
+}
+
+input[type="text"] {
+
+    flex: 1;
+
+    min-width: 0;
+
+    padding: 13px;
+
+    border: 1px solid #ccc;
+
+    border-radius: 6px;
+
+    font-size: 16px;
+
+}
+
+button {
+
+    border: none;
+
+    padding: 12px 22px;
+
+    background: #2563eb;
+
+    color: white;
+
+    border-radius: 6px;
+
+    font-size: 15px;
+
+    cursor: pointer;
+
+}
+
+button:hover {
+
+    background: #1d4ed8;
+
+}
+
+.search-guide {
+
+    font-size: 12px;
+
+    color: #888;
+
+    margin-bottom: 20px;
+
+}
+
+.result-count {
+
+    font-weight: bold;
+
+    margin-bottom: 12px;
+
+}
+
+table {
+
+    width: 100%;
+
+    border-collapse: collapse;
+
+    text-align: center;
+
+}
+
+th, td {
+
+    padding: 13px 8px;
+
+    border-bottom: 1px solid #eee;
+
+}
+
+th {
+
+    background: #f1f5f9;
+
+}
+
+.member {
+
+    color: #16a34a;
+
+    font-weight: bold;
+
+}
+
+.non-member {
+
+    color: #dc2626;
+
+    font-weight: bold;
+
+}
+
+.empty {
+
+    text-align: center;
+
+    padding: 25px;
+
+    color: #888;
+
+}
+
+@media(max-width: 480px) {
+
+    .container {
+
+        padding: 18px;
+
+    }
+
+    button {
+
+        padding: 12px 15px;
+
+    }
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <h2>회원 검색 시스템</h2>
+
+    <div class="status" id="fileStatus">
+
+        회원 데이터를 불러오는 중입니다...
+
+    </div>
+
+    <div class="search-area">
+
+        <input
+
+            type="text"
+
+            id="searchWord"
+
+            placeholder="닉네임 또는 이름 입력"
+
+        >
+
+        <button onclick="searchMember()">검색</button>
+
+    </div>
+
+    <div class="search-guide">
+
+        여러 명 검색 시 쉼표(,)로 구분하세요.
+
+        <br>
+
+        예: 존람, 보비스, 홍길동
+
+    </div>
+
+    <div class="result-count" id="resultCount">
+
+        검색 결과 0건
+
+    </div>
+
+    <table>
+
+        <thead>
+
+            <tr>
+
+                <th>닉네임</th>
+
+                <th>이름</th>
+
+                <th>정회원 여부</th>
+
+            </tr>
+
+        </thead>
+
+        <tbody id="resultBody">
+
+            <tr>
+
+                <td colspan="3" class="empty">
+
+                    검색어를 입력해주세요.
+
+                </td>
+
+            </tr>
+
+        </tbody>
+
+    </table>
+
+</div>
+
+<script>
+
+// 회원 데이터
+
+let memberList = [];
+
+let dataLoaded = false;
+
+// TXT 파일 자동 로드
+
+async function loadMemberData() {
+
+    const status = document.getElementById("fileStatus");
+
+    try {
+
+        const response = await fetch("./member.txt", {
+
+            cache: "no-store"
+
+        });
+
+        if (!response.ok) {
+
+            throw new Error("TXT 파일을 불러올 수 없습니다.");
+
+        }
+
+        const content = (await response.text())
+
+            .replace(/^\uFEFF/, "");
+
+        memberList = [];
+
+        const lines = content.split(/\r?\n/);
+
+        lines.forEach(line => {
+
+            if (!line.trim()) return;
+
+            const data = line.split("|");
+
+            if (data.length < 3) return;
+
+            const nickname = data[0].trim();
+
+            const name = data[1].trim();
+
+            const memberYn = data[2].trim().toUpperCase();
+
+            if (!nickname || !name) return;
+
+            memberList.push({
+
+                nickname,
+
+                name,
+
+                memberYn
+
+            });
+
+        });
+
+        dataLoaded = true;
+
+        status.innerText =
+
+            "회원 데이터 로드 완료 (" +
+
+            memberList.length + "명)";
+
+    } catch (error) {
+
+        dataLoaded = false;
+
+        status.innerText =
+
+            "회원 데이터 로드 실패: " + error.message;
+
+        document.getElementById("resultBody").innerHTML =
+
+            '<tr><td colspan="3" class="empty">' +
+
+            'member.txt 파일을 확인해주세요.</td></tr>';
+
+    }
+
+}
+
+// 회원 검색
+
+function searchMember() {
+
+    const keyword = document.getElementById("searchWord")
+
+        .value.trim();
+
+    const resultBody = document.getElementById("resultBody");
+
+    const resultCount = document.getElementById("resultCount");
+
+    if (!dataLoaded) {
+
+        alert("회원 데이터가 로드되지 않았습니다.");
+
+        return;
+
+    }
+
+    if (!keyword) {
+
+        alert("검색어를 입력해주세요.");
+
+        return;
+
+    }
+
+    // 쉼표 기준으로 검색어 분리
+
+    const keywords = keyword
+
+        .split(",")
+
+        .map(word => word.trim().toLowerCase())
+
+        .filter(word => word.length > 0);
+
+    if (keywords.length === 0) {
+
+        alert("검색어를 입력해주세요.");
+
+        return;
+
+    }
+
+    // 닉네임 또는 이름에 하나라도 일치하면 검색
+
+    const results = memberList.filter(member => {
+
+        const nickname = member.nickname.toLowerCase();
+
+        const name = member.name.toLowerCase();
+
+        return keywords.some(word =>
+
+            nickname.includes(word) ||
+
+            name.includes(word)
+
+        );
+
+    });
+
+    // 검색 건수
+
+    resultCount.innerText =
+
+        "검색 결과 " + results.length + "건";
+
+    // 검색 결과 없음
+
+    if (results.length === 0) {
+
+        resultBody.innerHTML =
+
+            '<tr><td colspan="3" class="empty">' +
+
+            '검색 결과가 없습니다.</td></tr>';
+
+        return;
+
+    }
+
+    // 결과 출력
+
+    let html = "";
+
+    results.forEach(member => {
+
+        const isMember = member.memberYn === "Y";
+
+        html += `
+
+            <tr>
+
+                <td>${escapeHtml(member.nickname)}</td>
+
+                <td>${escapeHtml(member.name)}</td>
+
+                <td class="${isMember ? 'member' : 'non-member'}">
+
+                    ${isMember ? '정회원' : '비회원'}
+
+                </td>
+
+            </tr>
+
+        `;
+
+    });
+
+    resultBody.innerHTML = html;
+
+}
+
+// HTML 특수문자 처리
+
+function escapeHtml(value) {
+
+    return String(value).replace(/[&<>"']/g, char => ({
+
+        '&': '&amp;',
+
+        '<': '&lt;',
+
+        '>': '&gt;',
+
+        '"': '&quot;',
+
+        "'": '&#39;'
+
+    })[char]);
+
+}
+
+// 엔터키 검색
+
+document.getElementById("searchWord")
+
+    .addEventListener("keydown", function(event) {
+
+        if (event.key === "Enter") {
+
+            searchMember();
+
+        }
+
+    });
+
+// 페이지 진입 시 자동 실행
+
+window.addEventListener("DOMContentLoaded", loadMemberData);
