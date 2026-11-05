@@ -519,14 +519,10 @@ function searchMember() {
         html += `
 
             <tr>
-
-                <td>${escapeHtml(member.nickname)}</td>
-
+                td>${escapeHtml(member.nickname)}</td>
                 <td>${escapeHtml(member.name)}</td>
-
                 <td class="${isMember ? 'member' : 'non-member'}">
-
-                    ${isMember ? '정회원' : '준회원'}
+                   ${isMember ? '정회원' : '준회원'}
 
                 </td>
 
