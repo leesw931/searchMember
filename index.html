@@ -286,39 +286,38 @@ th {
 
 <script>
 
-// 회원 데이터
-
 let memberList = [];
-
 let dataLoaded = false;
 
-// TXT 파일 자동 로드
-
+// 회원 데이터 자동 로드
 async function loadMemberData() {
 
     const status = document.getElementById("fileStatus");
+    const resultBody = document.getElementById("resultBody");
+
+    status.innerText = "회원 데이터를 불러오는 중입니다...";
 
     try {
 
-        const response = await fetch("./member.txt", {
+        // 현재 HTML과 동일한 폴더의 member.txt
+        const fileUrl = new URL("member.txt", window.location.href);
 
+        const response = await fetch(fileUrl.href, {
             cache: "no-store"
-
         });
 
         if (!response.ok) {
-
-            throw new Error("TXT 파일을 불러올 수 없습니다.");
-
+            throw new Error(
+                "파일 조회 실패: HTTP " + response.status
+            );
         }
 
         const content = (await response.text())
-
             .replace(/^\uFEFF/, "");
 
-        memberList = [];
-
         const lines = content.split(/\r?\n/);
+
+        memberList = [];
 
         lines.forEach(line => {
 
@@ -329,136 +328,104 @@ async function loadMemberData() {
             if (data.length < 3) return;
 
             const nickname = data[0].trim();
-
             const name = data[1].trim();
-
             const memberYn = data[2].trim().toUpperCase();
 
             if (!nickname || !name) return;
 
             memberList.push({
-
                 nickname,
-
                 name,
-
                 memberYn
-
             });
 
         });
 
+        if (memberList.length === 0) {
+            throw new Error("회원 데이터가 0건입니다.");
+        }
+
         dataLoaded = true;
 
         status.innerText =
-
             "회원 데이터 로드 완료 (" +
-
             memberList.length + "명)";
+
+        resultBody.innerHTML =
+            '<tr><td colspan="3" class="empty">' +
+            '검색어를 입력해주세요.</td></tr>';
 
     } catch (error) {
 
         dataLoaded = false;
 
         status.innerText =
-
             "회원 데이터 로드 실패: " + error.message;
 
-        document.getElementById("resultBody").innerHTML =
-
+        resultBody.innerHTML =
             '<tr><td colspan="3" class="empty">' +
+            escapeHtml(error.message) +
+            '</td></tr>';
 
-            'member.txt 파일을 확인해주세요.</td></tr>';
+        console.error("회원 데이터 로드 오류:", error);
 
     }
-
 }
 
-// 회원 검색
 
+// 회원 검색
 function searchMember() {
 
-    const keyword = document.getElementById("searchWord")
-
+    const keyword = document
+        .getElementById("searchWord")
         .value.trim();
 
-    const resultBody = document.getElementById("resultBody");
+    const resultBody =
+        document.getElementById("resultBody");
 
-    const resultCount = document.getElementById("resultCount");
+    const resultCount =
+        document.getElementById("resultCount");
 
     if (!dataLoaded) {
-
         alert("회원 데이터가 로드되지 않았습니다.");
-
         return;
-
     }
 
     if (!keyword) {
-
         alert("검색어를 입력해주세요.");
-
         return;
-
     }
 
-    // 쉼표 기준으로 검색어 분리
-
+    // 쉼표 기준 다건 검색
     const keywords = keyword
-
         .split(",")
-
         .map(word => word.trim().toLowerCase())
+        .filter(Boolean);
 
-        .filter(word => word.length > 0);
-
-    if (keywords.length === 0) {
-
-        alert("검색어를 입력해주세요.");
-
-        return;
-
-    }
-
-    // 닉네임 또는 이름에 하나라도 일치하면 검색
-
+    // 닉네임 또는 이름 검색
     const results = memberList.filter(member => {
 
         const nickname = member.nickname.toLowerCase();
-
         const name = member.name.toLowerCase();
 
         return keywords.some(word =>
-
             nickname.includes(word) ||
-
             name.includes(word)
-
         );
 
     });
 
-    // 검색 건수
-
     resultCount.innerText =
-
         "검색 결과 " + results.length + "건";
-
-    // 검색 결과 없음
 
     if (results.length === 0) {
 
         resultBody.innerHTML =
-
             '<tr><td colspan="3" class="empty">' +
-
             '검색 결과가 없습니다.</td></tr>';
 
         return;
-
     }
-
-    // 결과 출력
 
     let html = "";
 
@@ -467,21 +434,13 @@ function searchMember() {
         const isMember = member.memberYn === "Y";
 
         html += `
-
             <tr>
-
                 <td>${escapeHtml(member.nickname)}</td>
-
                 <td>${escapeHtml(member.name)}</td>
-
                 <td class="${isMember ? 'member' : 'non-member'}">
-
                     ${isMember ? '정회원' : '비회원'}
-
                 </td>
-
             </tr>
-
         `;
 
     });
@@ -490,35 +449,34 @@ function searchMember() {
 
 }
 
-// HTML 특수문자 처리
 
+// HTML 특수문자 처리
 function escapeHtml(value) {
 
     return String(value).replace(/[&<>"']/g, char => ({
-
         '&': '&amp;',
-
         '<': '&lt;',
-
         '>': '&gt;',
-
         '"': '&quot;',
-
         "'": '&#39;'
-
     })[char]);
 
 }
-// 엔터키 검색
-document.getElementById("searchWord")
-    .addEventListener("keydown", function(event) {
-
-        if (event.key === "Enter") {
-            searchMember();
-        }
-
-    });
 
 
-// 페이지 진입 시 회원정보 자동 로드
-loadMemberData();
+// 페이지 초기화
+document.addEventListener("DOMContentLoaded", function() {
+
+    document.getElementById("searchWord")
+        .addEventListener("keydown", function(event) {
+
+            if (event.key === "Enter") {
+                searchMember();
+            }
+
+        });
+
+    loadMemberData();
+
+});
+
