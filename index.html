@@ -287,12 +287,15 @@ th {
 <script>
 
 let memberList = [];
+
 let dataLoaded = false;
 
 // 회원 데이터 자동 로드
+
 async function loadMemberData() {
 
     const status = document.getElementById("fileStatus");
+
     const resultBody = document.getElementById("resultBody");
 
     status.innerText = "회원 데이터를 불러오는 중입니다...";
@@ -300,19 +303,27 @@ async function loadMemberData() {
     try {
 
         // 현재 HTML과 동일한 폴더의 member.txt
+
         const fileUrl = new URL("member.txt", window.location.href);
 
         const response = await fetch(fileUrl.href, {
+
             cache: "no-store"
+
         });
 
         if (!response.ok) {
+
             throw new Error(
+
                 "파일 조회 실패: HTTP " + response.status
+
             );
+
         }
 
         const content = (await response.text())
+
             .replace(/^\uFEFF/, "");
 
         const lines = content.split(/\r?\n/);
@@ -328,31 +339,43 @@ async function loadMemberData() {
             if (data.length < 3) return;
 
             const nickname = data[0].trim();
+
             const name = data[1].trim();
+
             const memberYn = data[2].trim().toUpperCase();
 
             if (!nickname || !name) return;
 
             memberList.push({
+
                 nickname,
+
                 name,
+
                 memberYn
+
             });
 
         });
 
         if (memberList.length === 0) {
+
             throw new Error("회원 데이터가 0건입니다.");
+
         }
 
         dataLoaded = true;
 
         status.innerText =
+
             "회원 데이터 로드 완료 (" +
+
             memberList.length + "명)";
 
         resultBody.innerHTML =
+
             '<tr><td colspan="3" class="empty">' +
+
             '검색어를 입력해주세요.</td></tr>';
 
     } catch (error) {
@@ -360,118 +383,233 @@ async function loadMemberData() {
         dataLoaded = false;
 
         status.innerText =
+
             "회원 데이터 로드 실패: " + error.message;
 
         resultBody.innerHTML =
+
             '<tr><td colspan="3" class="empty">' +
+
             escapeHtml(error.message) +
+
             '</td></tr>';
 
         console.error("회원 데이터 로드 오류:", error);
 
     }
+
 }
 
-
 // 회원 검색
+
 function searchMember() {
 
     const keyword = document
+
         .getElementById("searchWord")
+
         .value.trim();
 
     const resultBody =
+
         document.getElementById("resultBody");
 
     const resultCount =
+
         document.getElementById("resultCount");
 
     if (!dataLoaded) {
+
         alert("회원 데이터가 로드되지 않았습니다.");
+
         return;
+
     }
 
     if (!keyword) {
+
         alert("검색어를 입력해주세요.");
+
         return;
+
     }
 
     // 쉼표 기준 다건 검색
+
     const keywords = keyword
+
         .split(",")
-        .map(word => word.trim().toLowerCase())
+
+        .map(word => word.trim())
+
         .filter(Boolean);
 
-    // 닉네임 또는 이름 검색
-    const results = memberList.filter(member => {
+    // 회원 검색 결과 및 미가입 검색어
 
-        const nickname = member.nickname.toLowerCase();
-        const name = member.name.toLowerCase();
+    const results = [];
 
-        return keywords.some(word =>
-            nickname.includes(word) ||
-            name.includes(word)
-        );
+    const nonMembers = [];
+
+    keywords.forEach(word => {
+
+        const searchWord = word.toLowerCase();
+
+        // 닉네임 또는 이름 검색
+
+        const matchedMembers = memberList.filter(member => {
+
+            const nickname = member.nickname.toLowerCase();
+
+            const name = member.name.toLowerCase();
+
+            return nickname.includes(searchWord) ||
+
+                   name.includes(searchWord);
+
+        });
+
+        if (matchedMembers.length > 0) {
+
+            // 중복 회원은 한 번만 추가
+
+            matchedMembers.forEach(member => {
+
+                const exists = results.some(item =>
+
+                    item.nickname === member.nickname &&
+
+                    item.name === member.name
+
+                );
+
+                if (!exists) {
+
+                    results.push(member);
+
+                }
+
+            });
+
+        } else {
+
+            // 회원명단에 없는 검색어
+
+            nonMembers.push(word);
+
+        }
 
     });
 
+    // 전체 결과 건수
+
+    const totalCount = results.length + nonMembers.length;
+
     resultCount.innerText =
-        "검색 결과 " + results.length + "건";
 
-    if (results.length === 0) {
-
-        resultBody.innerHTML =
-            '<tr><td colspan="3" class="empty">' +
-            '검색 결과가 없습니다.</td></tr>';
-
-        return;
-    }
+        "검색 결과 " + totalCount + "건";
 
     let html = "";
+
+    // 회원 검색 결과 출력
 
     results.forEach(member => {
 
         const isMember = member.memberYn === "Y";
 
         html += `
+
             <tr>
+
                 <td>${escapeHtml(member.nickname)}</td>
+
                 <td>${escapeHtml(member.name)}</td>
+
                 <td class="${isMember ? 'member' : 'non-member'}">
+
                     ${isMember ? '정회원' : '비회원'}
+
                 </td>
+
             </tr>
+
         `;
 
     });
+
+    // 회원이 아닌 검색어를 결과 맨 아래 출력
+
+    nonMembers.forEach(word => {
+
+        html += `
+
+            <tr>
+
+                <td colspan="2" class="non-member">
+
+                    ${escapeHtml(word)}
+
+                </td>
+
+                <td class="non-member">
+
+                    회원아님
+
+                </td>
+
+            </tr>
+
+        `;
+
+    });
+
+    // 결과가 없는 경우
+
+    if (!html) {
+
+        html =
+
+            '<tr><td colspan="3" class="empty">' +
+
+            '검색 결과가 없습니다.</td></tr>';
+
+    }
 
     resultBody.innerHTML = html;
 
 }
 
-
 // HTML 특수문자 처리
+
 function escapeHtml(value) {
 
     return String(value).replace(/[&<>"']/g, char => ({
+
         '&': '&amp;',
+
         '<': '&lt;',
+
         '>': '&gt;',
+
         '"': '&quot;',
+
         "'": '&#39;'
+
     })[char]);
 
 }
 
-
 // 페이지 초기화
+
 document.addEventListener("DOMContentLoaded", function() {
 
     document.getElementById("searchWord")
+
         .addEventListener("keydown", function(event) {
 
             if (event.key === "Enter") {
+
                 searchMember();
+
             }
 
         });
@@ -479,6 +617,9 @@ document.addEventListener("DOMContentLoaded", function() {
     loadMemberData();
 
 });
+
 </script>
+
 </body>
+
 </html>
